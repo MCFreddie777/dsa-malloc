@@ -1,7 +1,22 @@
 //
-// Created by František Gič on 26/02/2020.
+// Created by Bc. František Gič on 26/02/2020.
 //
-#include <string.h>
+
+#include <stdio.h>
+
+/*
+ * Global variable, pointer to the start of our simulated memory
+ */
+char *memory = NULL;
+
+typedef struct header {
+    struct header *next;
+    unsigned int size;
+} header;
+
+typedef struct footer {
+    unsigned int size;
+} footer;
 
 void *memory_alloc (unsigned int size) {
     // mem = alloc ( size );
