@@ -23,6 +23,7 @@ typedef struct footer {
 
 #define FREE 0
 #define ALLOCATED 1
+
 #define head(pointer) ((header*) pointer)
 #define foot(pointer, size) ((footer*) ((char *) pointer + sizeof(header) +size))
 #define memsize(size) (size + sizeof(header) + sizeof(footer))
@@ -52,19 +53,21 @@ void *memory_alloc (unsigned int size) {
     if (memory == NULL)
         return NULL;
     
-    header *actual = (header *) memory;
+    header *actual = memory;
+    header *before = NULL;
     
     while (!can_allocate(actual, size)) {
         // Not suitable last chunk of free memory
         if (actual->next == NULL)
             return NULL;
-        else
+        else {
+            before = actual;
             actual = actual->next;
+        }
     };
     
     // if (header+size+footer) won't fit into the split chunk, return the whole block
     if ((actual->size - memsize(size)) < 0) {
-        memory = actual->next;
         actual->type = ALLOCATED;
         return actual;
     }
@@ -72,9 +75,19 @@ void *memory_alloc (unsigned int size) {
     // static copy of header of free memory (to keep the data)
     header h_former_free = *actual;
     
-    // Set the actual (allocated) block info
-    header *h_alloc = head(actual);
-    footer *f_alloc = foot(actual, size);
+    header *h_alloc = NULL;
+    footer *f_alloc = NULL;
+    
+    if (head(actual) == memory) {
+        // Special case, when the first free block is the beginning of memory
+        h_alloc = head(((char *) actual + sizeof(header)));
+        f_alloc = foot(h_alloc, size);
+    }
+    else {
+        // Set the actual (allocated) block info, replace the old header
+        h_alloc = head(actual);
+        f_alloc = foot(actual, size);
+    }
     
     h_alloc->size = size;
     h_alloc->type = ALLOCATED;
@@ -90,9 +103,12 @@ void *memory_alloc (unsigned int size) {
     h_free->type = FREE;
     f_free->size = h_free->size;
     
-    // if actual block was first in the chain of free mem
-    if ((char *) actual == memory)
-        memory = h_free;
+    if (head(actual) == memory) {
+        head(actual)->next = h_free;
+    }
+    else {
+        before->next = h_free;
+    }
     
     return actual;
 };
@@ -100,7 +116,7 @@ void *memory_alloc (unsigned int size) {
 int memory_free (void *valid_ptr) {};
 
 int memory_check (void *ptr) {
-    return (ptr != NULL && ((header *) ptr)->type == ALLOCATED);
+    return (ptr != NULL && (((header *) ptr)->type == ALLOCATED || ptr == memory));
 };
 
 /**
@@ -123,7 +139,6 @@ void memory_init (void *ptr, unsigned int size) {
 
 int main () {
     char region[100];
-    memset(region, 'F', 100);
     memory_init(region, 100);
     
     char *pointer = (char *) memory_alloc(5);
