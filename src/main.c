@@ -99,7 +99,9 @@ void *memory_alloc (unsigned int size) {
 
 int memory_free (void *valid_ptr) {};
 
-int memory_check (void *ptr) {};
+int memory_check (void *ptr) {
+    return (ptr != NULL && ((header *) ptr)->type == ALLOCATED);
+};
 
 /**
  * This method initialises the memory by pushing the header and footer in it
