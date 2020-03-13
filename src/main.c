@@ -162,11 +162,11 @@ int main () {
     memset(region, 'F', 100);
     memory_init(region, 100);
     
-    header *ptr = (header *) memory_alloc(5);
-    header *ptr2 = (header *) memory_alloc(7);
+    char *pointer = (char *) memory_alloc(5);
+    char *pointer2 = (char *) memory_alloc(7);
     
-    int result = memory_check(ptr);
-    int result2 = memory_check(ptr2);
+    int result = memory_check(pointer);
+    int result2 = memory_check(pointer2);
     
     return 0;
 }
