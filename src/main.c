@@ -38,7 +38,13 @@ typedef struct footer {
  *         '0' otherwise
  */
 char can_allocate (header *mem, unsigned int size) {
-    return (char) (mem != NULL && mem->size >= size);
+    return (char) (
+        mem != NULL &&
+        mem->size >= size &&
+        // This is here because of the global header -> check if there is block allocated after it
+        // Cuz global header is still set FREE and
+        ((header *) ((char *) mem + sizeof(header)))->type != ALLOCATED
+    );
 }
 
 /**
@@ -68,7 +74,11 @@ void *memory_alloc (unsigned int size) {
     
     // if (header+size+footer) won't fit into the split chunk, return the whole block
     if ((actual->size - memsize(size)) < 0) {
+        if (actual == memory)
+            return NULL;
+        
         actual->type = ALLOCATED;
+        before->next = actual->next;
         return actual;
     }
     
@@ -99,24 +109,34 @@ void *memory_alloc (unsigned int size) {
     footer *f_free = foot(actual, h_former_free.size);
     
     h_free->size = h_former_free.size - memsize(size);
+    
+    // global header stays here in the case of first block (therefore we need to substract it)
+    if (head(actual) == memory) {
+        h_free->size = h_free->size - sizeof(header);
+    }
+    
     h_free->next = h_former_free.next;
     h_free->type = FREE;
     f_free->size = h_free->size;
     
     if (head(actual) == memory) {
         head(actual)->next = h_free;
-    }
-    else {
-        before->next = h_free;
+        return h_alloc;
     }
     
+    before->next = h_free;
     return actual;
 };
 
 int memory_free (void *valid_ptr) {};
 
 int memory_check (void *ptr) {
-    return (ptr != NULL && (((header *) ptr)->type == ALLOCATED || ptr == memory));
+    return (
+        (ptr != NULL) &&
+        (ptr >= memory) &&
+        (ptr < (void *) (foot(memory, head(memory)->size + sizeof(footer)))) &&
+        ((header *) ptr)->type == ALLOCATED
+    );
 };
 
 /**
@@ -139,9 +159,14 @@ void memory_init (void *ptr, unsigned int size) {
 
 int main () {
     char region[100];
+    memset(region, 'F', 100);
     memory_init(region, 100);
     
-    char *pointer = (char *) memory_alloc(5);
+    header *ptr = (header *) memory_alloc(5);
+    header *ptr2 = (header *) memory_alloc(7);
+    
+    int result = memory_check(ptr);
+    int result2 = memory_check(ptr2);
     
     return 0;
 }
