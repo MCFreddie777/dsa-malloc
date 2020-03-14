@@ -73,13 +73,13 @@ void *memory_alloc (unsigned int size) {
     };
     
     // If (header+size+footer) won't fit into the split chunk, return the whole block
-    if ((actual->size - memsize(size)) < 0) {
-        if (actual == memory)
-            return NULL;
-        
+    if (actual->size <= memsize(size)) {
         actual->type = ALLOCATED;
-        before->next = actual->next;
-        return actual;
+        
+        if (actual != memory)
+            before->next = actual->next;
+        
+        return (char *) actual + sizeof(header);
     }
     
     // Static copy of header of free memory (to keep the data)
