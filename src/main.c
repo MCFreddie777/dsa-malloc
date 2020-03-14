@@ -2,6 +2,7 @@
 // Created by Bc. František Gič on 26/02/2020.
 //
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -205,16 +206,8 @@ int memory_free (void *valid_ptr) {
             }
         }
         
-        // Special case, if the entity before our header is global header
-        header *globalH = head(((char *) valid_h - sizeof(header)));
-        if (!out_of_bounds(globalH) && (globalH == memory)) {
-            valid_h->next = globalH->next;
-            globalH->next = valid_h;
-        }
-        
-        // Set the chunk as free (the aim of this function lol)
+        // Set the chunk as free (the main aim of this function lol)
         valid_h->type = FREE;
-        
         
         int free_chunk_n = 0;
         unsigned int free_chunk_size = 0;
@@ -228,8 +221,8 @@ int memory_free (void *valid_ptr) {
         }
         
         /*
-         * If size of all free chunks including its' headers and footer equals to total free size
-         * between global boundaries is equal to global size, then we can merge all chunks
+         * If size of all free chunks including its' headers and footer is equal to the total
+         * size between global boundaries, then we can merge all chunks
          * Formula = N * (sizeof(header) + sizeof(footer)) + total_inner_free_size - global_footer
          */
         unsigned int raw_size_free_chunks =
