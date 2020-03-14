@@ -2,7 +2,6 @@
 // Created by Bc. František Gič on 26/02/2020.
 //
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -130,14 +129,119 @@ void *memory_alloc (unsigned int size) {
     return (char *) actual + sizeof(header);
 };
 
+/**
+ * This function tests whether the pointer points to a memory inside our "simulated" memory
+ *
+ * @param ptr The pointer to be checked
+ * @return A boolean value represented
+ */
+short out_of_bounds (void *ptr) {
+    return (short) (
+        (ptr < memory) ||
+        (ptr >= (void *) (foot(memory, head(memory)->size + sizeof(footer))))
+    );
+};
+
+/**
+ * This function checks whether the memory which the pointer pointing to
+ * was previously allocated by our memory_alloc function or not
+ *
+ * @param ptr The pointer to a memory to be checked
+ * @return A boolean value
+ */
 int memory_check (void *ptr) {
     header *h = head(((char *) ptr - sizeof(header)));
     return (
         (ptr != NULL) &&
-        ((void *) h >= memory) &&
-        ((void *) h < (void *) (foot(memory, head(memory)->size + sizeof(footer)))) &&
+        !out_of_bounds(ptr) &&
         h->type == ALLOCATED
     );
+};
+
+/**
+ * This function frees the memory previously allocated by memory_alloc()
+ * If memory is preceded or succeeded by another free chunk it'll merge those chunks together
+ * If all chunks are free, it will merge the whole memory within the global header and footer
+ *
+ * @param valid_ptr A pointer to the memory which was previously allocated by memory_alloc
+ * @return '1' if memory was freed
+ *         '0' otherwise
+ */
+int memory_free (void *valid_ptr) {
+    
+    header *valid_h = head(((char *) valid_ptr - sizeof(header)));
+    
+    if (memory_check(valid_ptr)) {
+        
+        
+        footer *valid_f = foot(valid_ptr, valid_h->size - sizeof(header));
+        header *next_h = head(((char *) valid_f + sizeof(footer)));
+        
+        footer *prev_f = (footer *) ((char *) valid_h - sizeof(footer));
+        header *prev_h = head(((char *) prev_f - prev_f->size - sizeof(header)));
+        
+        // If the block after is free
+        if (!out_of_bounds(next_h) && next_h->type == FREE) {
+            
+            // Omit the the blocks footer and next header
+            valid_h->size = valid_h->size + sizeof(footer) + sizeof(header) + next_h->size;
+            
+            // Traverse to link the free memory chain
+            header *actual = (header *) memory;
+            while (actual->next != next_h) {
+                actual = actual->next;
+            }
+            
+            actual->next = valid_h;
+        }
+        
+        // If the block before is free, expand its size by this block, omit the footer and header
+        if (!out_of_bounds(prev_h) && prev_h->type == FREE) {
+            prev_h->size = prev_h->size + sizeof(footer) + sizeof(header) + valid_h->size;
+            
+            // If the block before points to the block to be freed, skip this.
+            if (prev_h->next == valid_h) {
+                prev_h->next = valid_h->next;
+            }
+        }
+        
+        // Special case, if the entity before our header is global header
+        header *globalH = head(((char *) valid_h - sizeof(header)));
+        if (!out_of_bounds(globalH) && (globalH == memory)) {
+            valid_h->next = globalH->next;
+            globalH->next = valid_h;
+        }
+        
+        // Set the chunk as free (the aim of this function lol)
+        valid_h->type = FREE;
+        
+        
+        int free_chunk_n = 0;
+        unsigned int free_chunk_size = 0;
+        
+        // Traverse to link the free memory chain
+        header *actual = head(memory)->next;
+        while (actual != NULL) {
+            free_chunk_n++;
+            free_chunk_size += actual->size;
+            actual = actual->next;
+        }
+        
+        /*
+         * If size of all free chunks including its' headers and footer equals to total free size
+         * between global boundaries is equal to global size, then we can merge all chunks
+         * Formula = N * (sizeof(header) + sizeof(footer)) + total_inner_free_size - global_footer
+         */
+        unsigned int raw_size_free_chunks =
+            free_chunk_n * (sizeof(header) + sizeof(footer)) + free_chunk_size - sizeof(footer);
+        
+        if (raw_size_free_chunks == head(memory)->size) {
+            head(memory)->next = NULL;
+        }
+        
+        return 1;
+    }
+    else return 0;
 };
 
 /**
@@ -160,14 +264,7 @@ void memory_init (void *ptr, unsigned int size) {
 
 int main () {
     char region[100];
-    memset(region, 'F', 100);
     memory_init(region, 100);
-    
-    char *pointer = (char *) memory_alloc(5);
-    char *pointer2 = (char *) memory_alloc(7);
-    
-    int result = memory_check(pointer);
-    int result2 = memory_check(pointer2);
     
     return 0;
 }
