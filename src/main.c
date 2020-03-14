@@ -72,7 +72,7 @@ void *memory_alloc (unsigned int size) {
         }
     };
     
-    // if (header+size+footer) won't fit into the split chunk, return the whole block
+    // If (header+size+footer) won't fit into the split chunk, return the whole block
     if ((actual->size - memsize(size)) < 0) {
         if (actual == memory)
             return NULL;
@@ -82,7 +82,7 @@ void *memory_alloc (unsigned int size) {
         return actual;
     }
     
-    // static copy of header of free memory (to keep the data)
+    // Static copy of header of free memory (to keep the data)
     header h_former_free = *actual;
     
     header *h_alloc = NULL;
@@ -110,7 +110,7 @@ void *memory_alloc (unsigned int size) {
     
     h_free->size = h_former_free.size - memsize(size);
     
-    // global header stays here in the case of first block (therefore we need to substract it)
+    // Global header stays here in the case of first block (therefore we need to substract it)
     if (head(actual) == memory) {
         h_free->size = h_free->size - sizeof(header);
     }
@@ -119,23 +119,24 @@ void *memory_alloc (unsigned int size) {
     h_free->type = FREE;
     f_free->size = h_free->size;
     
+    // If we created block right after start of memory, return that
     if (head(actual) == memory) {
         head(actual)->next = h_free;
-        return h_alloc;
+        return (char *) h_alloc + sizeof(header);
     }
     
+    // If we took the replacement of free header, return that
     before->next = h_free;
-    return actual;
+    return (char *) actual + sizeof(header);
 };
 
-int memory_free (void *valid_ptr) {};
-
 int memory_check (void *ptr) {
+    header *h = head(((char *) ptr - sizeof(header)));
     return (
         (ptr != NULL) &&
-        (ptr >= memory) &&
-        (ptr < (void *) (foot(memory, head(memory)->size + sizeof(footer)))) &&
-        ((header *) ptr)->type == ALLOCATED
+        ((void *) h >= memory) &&
+        ((void *) h < (void *) (foot(memory, head(memory)->size + sizeof(footer)))) &&
+        h->type == ALLOCATED
     );
 };
 
