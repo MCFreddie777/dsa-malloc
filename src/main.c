@@ -176,7 +176,9 @@ int memory_free (void *valid_ptr) {
         
         
         footer *valid_f = foot(valid_ptr, valid_h->size - sizeof(header));
+        
         header *next_h = head(((char *) valid_f + sizeof(footer)));
+        footer *next_f = foot(next_h, next_h->size);
         
         footer *prev_f = (footer *) ((char *) valid_h - sizeof(footer));
         header *prev_h = head(((char *) prev_f - prev_f->size - sizeof(header)));
@@ -186,6 +188,7 @@ int memory_free (void *valid_ptr) {
             
             // Omit the the blocks footer and next header
             valid_h->size = valid_h->size + sizeof(footer) + sizeof(header) + next_h->size;
+            next_f->size = valid_h->size;
             
             // Traverse to link the free memory chain
             header *actual = (header *) memory;
@@ -199,6 +202,7 @@ int memory_free (void *valid_ptr) {
         // If the block before is free, expand its size by this block, omit the footer and header
         if (!out_of_bounds(prev_h) && prev_h->type == FREE) {
             prev_h->size = prev_h->size + sizeof(footer) + sizeof(header) + valid_h->size;
+            valid_f->size = prev_h->size;
             
             // If the block before points to the block to be freed, skip this.
             if (prev_h->next == valid_h) {
@@ -230,6 +234,7 @@ int memory_free (void *valid_ptr) {
         
         if (raw_size_free_chunks == head(memory)->size) {
             head(memory)->next = NULL;
+            foot(memory, head(memory)->size)->size = head(memory)->size;
         }
         
         return 1;
