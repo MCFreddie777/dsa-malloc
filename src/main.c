@@ -2,7 +2,6 @@
 // Created by Bc. František Gič on 26/02/2020.
 //
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,7 +42,9 @@ char can_allocate (header *mem, unsigned int size) {
         mem->size >= size &&
         // This is here because of the global header -> check if there is block allocated after it
         // Cuz global header is still set FREE and
-        ((header *) ((char *) mem + sizeof(header)))->type != ALLOCATED
+        !((mem == memory) && ((header *) ((char *) mem + sizeof(header)))->type == ALLOCATED) &&
+        // If whole memory is set as allocated (special case)
+        mem->type != ALLOCATED
     );
 }
 
@@ -72,14 +73,18 @@ void *memory_alloc (unsigned int size) {
         }
     };
     
-    // If (header+size+footer) won't fit into the split chunk, return the whole block
-    if (actual->size <= memsize(size)) {
+    // If (header+size+footer) + next header won't fit into the split chunk, return the whole block
+    if (
+        actual->size <= memsize(size) ||
+        (actual == memory && actual->size <= memsize(size) + sizeof(header))
+    ) {
+        
         actual->type = ALLOCATED;
         
         if (actual != memory)
             before->next = actual->next;
         
-        return (char *) actual + sizeof(header);
+        return ((char *) actual + sizeof(header));
     }
     
     // Static copy of header of free memory (to keep the data)
@@ -261,8 +266,11 @@ void memory_init (void *ptr, unsigned int size) {
 }
 
 int main () {
-    char region[100];
-    memory_init(region, 100);
+    unsigned int memory_size = 100;
+    
+    char region[memory_size];
+    memset(region,0,memory_size);
+    memory_init(region, memory_size);
     
     return 0;
 }
